@@ -71,9 +71,10 @@ cmd_binary() {
     strip $dir/_output/slink-webhook
 }
 ##   image [--tag=]
-##     Build the image
+##     Build the image. Update deployment scripts if --tag= is used
 cmd_image() {
-	cmd_binary
+	cmd_env
+	test -x _output/slink-webhook || cmd_binary
 	docker build -t $__tag $dir
 }
 ##   emit_csr_conf
@@ -107,13 +108,87 @@ cmd_cert() {
 	cmd_emit_csr_conf > $tmp/csr.conf
 	mkdir -p $__certd || die
 	cd $__certd
-	openssl genrsa -out slink-webhook.key 2048
+	test -r slink-webhook.key \
+		|| openssl genrsa -out slink-webhook.key 2048
 	openssl req -new -key slink-webhook.key -out $tmp/csr -config $tmp/csr.conf
 	
 	openssl req -x509 -key slink-webhook.key -out slink-webhook.crt -days 3650 -nodes -in $tmp/csr -copy_extensions copyall
 	#openssl x509 -noout -text -in cert/slink-webhook.crt
 }
-
+##   manifests
+##     Build manifests from templates
+cmd_manifests() {
+	cmd_env
+	export __tag
+	cat $dir/deployment/slink-webhook-template.yaml | envsubst \
+		> $dir/deployment/slink-webhook.yaml
+	export __namespace
+	export CABUNDLE=$(cat $dir/cert/slink-webhook.crt | base64 | tr -d '\n')
+	cat $dir/deployment/slink-webhook-conf-template.yaml | envsubst \
+		> $dir/deployment/slink-webhook-conf.yaml
+	test "$__combo" = "yes" && combo_manifest
+}
+# Create a combo-manifest
+combo_manifest() {
+	local out=$dir/deployment/slink-webhook-all.yaml
+	cat > $out <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: $__namespace
+---
+EOF
+	local f
+	for f in slink-webhook-svc slink-webhook; do
+		cat $dir/deployment/$f.yaml \
+			| sed -e '/^metadata:/a\' -e "  namespace: $__namespace" >> $out
+		echo "---" >> $out
+	done
+	cat $dir/deployment/slink-webhook-conf.yaml >> $out
+}
+##   deploy [--namespace=]
+##     Deploy the slink-webhook
+cmd_deploy() {
+	cmd_manifests
+	# Check that we have contact with the cluster
+	kubectl cluster-info --request-timeout=1 > /dev/null 2>&1 \
+		|| die "No contact with the cluster"
+	kubectl get namespace $__namespace -o name 2> /dev/null \
+		|| kubectl create namespace $__namespace || die "create namespace"
+	kubectl -n $__namespace create -f $dir/deployment/slink-webhook-svc.yaml \
+		|| die "Create slink-webhook service"
+	kubectl -n $__namespace create -f $dir/deployment/slink-webhook.yaml \
+		|| die "Create slink-webhook deployment"
+	kubectl create -f $dir/deployment/slink-webhook-conf.yaml \
+		|| die "Create slink-webhook configuration"
+}
+##   undeploy [--namespace=]
+##     Delete the slink-webhook.
+cmd_undeploy() {
+	cmd_manifests
+	# Check that we have contact with the cluster
+	kubectl cluster-info --request-timeout=1 > /dev/null 2>&1 \
+		|| die "No contact with the cluster"
+	kubectl delete -f $dir/deployment/slink-webhook-conf.yaml \
+		|| die "Create slink-webhook configuration"
+	kubectl -n $__namespace delete -f $dir/deployment/slink-webhook.yaml \
+		|| die "Create slink-webhook deployment"
+	kubectl -n $__namespace delete -f $dir/deployment/slink-webhook-svc.yaml \
+		|| die "Create slink-webhook service"
+}
+##   test
+##     Create a test-pod in "default" namespace and verify that it
+##     gets "enableServiceLinks:false", then create a test-pod in
+##     "slink-webhook" namespace and verify that it remains with
+##     "enableServiceLinks:true"
+cmd_test() {
+	cmd_env
+	# Check that we have contact with the cluster
+	kubectl cluster-info --request-timeout=1 > /dev/null 2>&1 \
+		|| die "No contact with the cluster"
+	kubectl create -f ./test/testpod.yaml || die "Create testpod"
+	
+}
 
 ##
 # Get the command

@@ -1,2 +1,3 @@
-cert/
 _output/
+deployment/slink-webhook.yaml
+deployment/slink-webhook-conf.yaml

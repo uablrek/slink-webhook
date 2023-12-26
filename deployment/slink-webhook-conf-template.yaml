@@ -1,0 +1,30 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: slink-webhook
+  labels:
+    app: slink-webhook
+webhooks:
+  - name: slink-webhook.default.svc
+    admissionReviewVersions: ["v1"]
+    clientConfig:
+      caBundle: $CABUNDLE
+      service:
+        name: slink-webhook
+        namespace: $__namespace
+        path: "/"
+        port: 443
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    sideEffects: None
+    timeoutSeconds: 5
+    reinvocationPolicy: Never
+    failurePolicy: Ignore
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: ["kube-system", "$__namespace"]

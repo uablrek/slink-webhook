@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: slink-webhook
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: slink-webhook
+  name: slink-webhook
+spec:
+  selector:
+    app: slink-webhook
+  ports:
+  - port: 443
+    name: https
+    targetPort: 8443
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: slink-webhook
+  name: slink-webhook
+spec:
+  selector:
+    matchLabels:
+      app: slink-webhook
+  template:
+    metadata:
+      labels:
+        app: slink-webhook
+    spec:
+      enableServiceLinks: false
+      containers:
+      - name: slink-webhook
+        image: docker.io/uablrek/slink-webhook:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: LOG_LEVEL
+          value: "1"
+        - name: CRT_FILE
+          value: "/cert/slink-webhook.crt"
+        - name: KEY_FILE
+          value: "/cert/slink-webhook.key"
+        ports:
+          - containerPort: 8443
+            name: https
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: https
+            scheme: HTTPS
+          failureThreshold: 1
+          periodSeconds: 30
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: slink-webhook
+  labels:
+    app: slink-webhook
+webhooks:
+  - name: slink-webhook.default.svc
+    admissionReviewVersions: ["v1"]
+    clientConfig:
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUQ4RENDQXRpZ0F3SUJBZ0lVYzd4TlA3c1V3cDVDalJjdjNZeGhRcG5KYm84d0RRWUpLb1pJaHZjTkFRRUwKQlFBd0tqRW9NQ1lHQTFVRUF3d2ZjMnhwYm1zdGQyVmlhRzl2YXk1emJHbHVheTEzWldKb2IyOXJMbk4yWXpBZQpGdzB5TXpFeU1qWXdPVEkzTVRWYUZ3MHpNekV5TWpNd09USTNNVFZhTUNveEtEQW1CZ05WQkFNTUgzTnNhVzVyCkxYZGxZbWh2YjJzdWMyeHBibXN0ZDJWaWFHOXZheTV6ZG1Nd2dnRWlNQTBHQ1NxR1NJYjNEUUVCQVFVQUE0SUIKRHdBd2dnRUtBb0lCQVFEWkw4MEtoeTJ6SlZLbWZ6ZmR1dHRpUmZHQ2xyMFJ5UWxTbjNBMG14VHdZTnFXVk9hVgprYUNLSXA2UmI1QmtoY0tNYTNVdzliNTBOQUlnRGdKakZWU3I2bmp2NHhlTkRDTGxmSFlOektHeWdqaTN3UlhuClBMTHRLbytPVUZuRjdFMDFPYlVIUFdhUUNhZDBHL3hLTVJKZ2grN2FqV0ZwNmRZaWNQUXhydUw0KzFyWmt3VisKV2FUa3hlUHZCb21uQXppTmlBV1RRenh6NGVMTjh3OXJFemhGT3FzQXk0dHhPZGpLbndpVVBXQzRnZ0hzZnVrSQoxYmdLaWgwcmMranhEV0EyK2E0NVhtNnBMQWg2NjQrMmhFSFRjSmJvMW9yclFSQnVaaFhTeEFiZEliWk93bHorCjlwM3dERWV6T2NTbGxWTVhRU204YkxDQjVVdzlkRFlMUThhZEFnTUJBQUdqZ2dFTU1JSUJDREFMQmdOVkhROEUKQkFNQ0JlQXdFd1lEVlIwbEJBd3dDZ1lJS3dZQkJRVUhBd0V3Z1pJR0ExVWRFUVNCaWpDQmg0SU5jMnhwYm1zdApkMlZpYUc5dmE0SWJjMnhwYm1zdGQyVmlhRzl2YXk1emJHbHVheTEzWldKb2IyOXJnaDl6YkdsdWF5MTNaV0pvCmIyOXJMbk5zYVc1ckxYZGxZbWh2YjJzdWMzWmpnaTF6YkdsdWF5MTNaV0pvYjI5ckxuTnNhVzVyTFhkbFltaHYKYjJzdWMzWmpMbU5zZFhOMFpYSXViRzlqWVd5Q0NXeHZZMkZzYUc5emREQWRCZ05WSFE0RUZnUVVpdXVycDc3VQpyMG90V2I0SlpGVkI4OXJWR3ZZd0h3WURWUjBqQkJnd0ZvQVVpdXVycDc3VXIwb3RXYjRKWkZWQjg5clZHdll3CkR3WURWUjBUQVFIL0JBVXdBd0VCL3pBTkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQXhiZENuNkt4ZjZaYnltb00Kd2RnQ1pjMWFXUTYwMlRjT1pQRmNIcUtKZWNOdEJWSm9HWDRCWUkvL2JQTWZYdkRmUEdjQ0EzdXgvQkVuMVdZVgpmenBqR08yeEpGV3krYndkaFVGdUQ4ZDdyc2lsanlaYkR1YTV1NEtDbFdsc21SZ3NVQTQ4eHVlNmxsWlBNcUdQClpmMmhkY1N3MjYxZHFHYWkxYmVzNENCNkJ3N3FJVE5jOXUyeFFEREpwdG1lNXV1djNZYVBvZnNJcm81Y090VEgKUytQUTFIREF2eXU3NUF2dWZLQjdYSEk2eDVQdmR1THErVWpjZXE2TGRaK0JPRko0ZXZVcGtLd2hwOHErNnhWSgprSHNqOURWaDVNYjlrUThRV084VEdhb3RaMVBVOEpuZGRqTEJwalVSZ2JKYlEwRHlMbnp0dnVIcStSY2xKWUdTCnNOWUsxZz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+      service:
+        name: slink-webhook
+        namespace: slink-webhook
+        path: "/"
+        port: 443
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    sideEffects: None
+    timeoutSeconds: 5
+    reinvocationPolicy: Never
+    failurePolicy: Ignore
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values: ["kube-system", "slink-webhook"]

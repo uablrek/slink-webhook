@@ -1,18 +1,17 @@
 
-.PHONY: all 
-all: image cert/slink-webhook.crt cert/slink-webhook.key
+.PHONY: image
+image: binary
+	./build.sh image
 
+.PHONY: binary
+binary: _output/slink-webhook
 _output/slink-webhook: cmd/slink-webhook/main.go
 	./build.sh binary
 
-cert/slink-webhook.crt cert/slink-webhook.key:
-	./build.sh cert --namespace=$(NAMESPACE)
-
-.PHONY: image
-image: _output/slink-webhook
-	./build.sh image
+.PHONY: deploy
+deploy:
+	./build.sh deploy
 
 .PHONY: clean
 clean:
-	rm -rf cert _output
-
+	rm -rf _output deployment/slink-webhook.yaml deployment/slink-webhook-conf.yaml

@@ -116,9 +116,6 @@ func getCrtAndKey() (string, string) {
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
-	//ip=$(kubectl get pods -l app=slink-webhook -o json | jq -r .items[0].status.podIP)
-	//curl -k https://$ip:8443/health
-	//curl https://slink-webhook.default.svc.xcluster/health
 	logger := logr.FromContextOrDiscard(r.Context())
 	logger.V(2).Info("Got a health-check")
 	fmt.Fprintf(w, "hello %q\n", html.EscapeString(r.URL.Path))
@@ -157,7 +154,8 @@ func handleMutate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.V(2).Info("Request", "pod", *pod)
-	podLogger := logger.V(1).WithValues(
+	var podLogger logr.Logger
+	podLogger = logger.V(1).WithValues(
 		"namespace", pod.ObjectMeta.Namespace,
 		"generatedName", pod.ObjectMeta.GenerateName)
 

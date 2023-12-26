@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: slink-webhook
+spec:
+  selector:
+    matchLabels:
+      app: slink-webhook
+  template:
+    metadata:
+      labels:
+        app: slink-webhook
+    spec:
+      enableServiceLinks: false
+      containers:
+      - name: slink-webhook
+        image: $__tag
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: LOG_LEVEL
+          value: "1"
+        - name: CRT_FILE
+          value: "/cert/slink-webhook.crt"
+        - name: KEY_FILE
+          value: "/cert/slink-webhook.key"
+        ports:
+          - containerPort: 8443
+            name: https
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: https
+            scheme: HTTPS
+          failureThreshold: 1
+          periodSeconds: 30
