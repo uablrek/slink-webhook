@@ -8,7 +8,7 @@ webhooks:
   - name: slink-webhook.default.svc
     admissionReviewVersions: ["v1"]
     clientConfig:
-      caBundle: $CABUNDLE
+      caBundle: $__cabundle
       service:
         name: slink-webhook
         namespace: $__namespace

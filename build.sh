@@ -40,7 +40,6 @@ cmd_env() {
 	envread=yes
 	eset \
 		__namespace=slink-webhook \
-		__certd=$dir/cert \
 		__tag=docker.io/uablrek/slink-webhook:latest
     # Build a *correct* semantic version from date and time (no leading 0's)
     eset __version=$(date +%Y.%_m.%_d+%H.%M | tr -d ' ')
@@ -75,6 +74,7 @@ cmd_binary() {
 cmd_image() {
 	cmd_env
 	test -x _output/slink-webhook || cmd_binary
+	mkdir -p cert
 	docker build -t $__tag $dir
 }
 ##   emit_csr_conf
@@ -97,25 +97,25 @@ DNS.1 = slink-webhook
 DNS.2 = slink-webhook.$__namespace
 DNS.3 = slink-webhook.$__namespace.svc
 DNS.4 = slink-webhook.$__namespace.svc.cluster.local
-DNS.5 = localhost
 EOF
 }
 ##   cert [--namespace=]
-##     Create a key and self-signed certificate for the webhook
+##     Create a key and self-signed certificate for the webhook in "cert/".
+##     This is intended for tests when security is not an issue
 cmd_cert() {
 	cmd_env
 	mkdir -p $tmp
 	cmd_emit_csr_conf > $tmp/csr.conf
-	mkdir -p $__certd || die
-	cd $__certd
+	mkdir -p $dir/cert
+	cd $dir/cert
 	test -r slink-webhook.key \
-		|| openssl genrsa -out slink-webhook.key 2048
+		|| openssl genrsa -out slink-webhook.key 2048 || die "Create key"
 	openssl req -new -key slink-webhook.key -out $tmp/csr -config $tmp/csr.conf
-	
-	openssl req -x509 -key slink-webhook.key -out slink-webhook.crt -days 3650 -nodes -in $tmp/csr -copy_extensions copyall
+	openssl req -x509 -key slink-webhook.key -out slink-webhook.crt \
+		-days 3650 -nodes -in $tmp/csr -copy_extensions copyall
 	#openssl x509 -noout -text -in cert/slink-webhook.crt
 }
-##   manifests
+##   manifests [--combo] [--cabundle=]
 ##     Build manifests from templates
 cmd_manifests() {
 	cmd_env
@@ -123,7 +123,9 @@ cmd_manifests() {
 	cat $dir/deployment/slink-webhook-template.yaml | envsubst \
 		> $dir/deployment/slink-webhook.yaml
 	export __namespace
-	export CABUNDLE=$(cat $dir/cert/slink-webhook.crt | base64 | tr -d '\n')
+	test -n "$__cabundle" || \
+		__cabundle=$(cat cert/slink-webhook.crt | base64 | tr -d '\n')
+	export __cabundle
 	cat $dir/deployment/slink-webhook-conf-template.yaml | envsubst \
 		> $dir/deployment/slink-webhook-conf.yaml
 	test "$__combo" = "yes" && combo_manifest
@@ -163,7 +165,7 @@ cmd_deploy() {
 		|| die "Create slink-webhook configuration"
 }
 ##   undeploy [--namespace=]
-##     Delete the slink-webhook.
+##     Delete the slink-webhook, but leave the namespace
 cmd_undeploy() {
 	cmd_manifests
 	# Check that we have contact with the cluster
@@ -175,19 +177,6 @@ cmd_undeploy() {
 		|| die "Create slink-webhook deployment"
 	kubectl -n $__namespace delete -f $dir/deployment/slink-webhook-svc.yaml \
 		|| die "Create slink-webhook service"
-}
-##   test
-##     Create a test-pod in "default" namespace and verify that it
-##     gets "enableServiceLinks:false", then create a test-pod in
-##     "slink-webhook" namespace and verify that it remains with
-##     "enableServiceLinks:true"
-cmd_test() {
-	cmd_env
-	# Check that we have contact with the cluster
-	kubectl cluster-info --request-timeout=1 > /dev/null 2>&1 \
-		|| die "No contact with the cluster"
-	kubectl create -f ./test/testpod.yaml || die "Create testpod"
-	
 }
 
 ##
