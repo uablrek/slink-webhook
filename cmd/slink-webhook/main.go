@@ -131,7 +131,6 @@ func handleMutate(w http.ResponseWriter, r *http.Request) {
 		sendError(err, w)
 		return
 	}
-	logger.V(2).Info("handleMutate", "body", body)
 
 	admReview := admission.AdmissionReview{}
 	if err := json.Unmarshal(body, &admReview); err != nil {
@@ -155,9 +154,17 @@ func handleMutate(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.V(2).Info("Request", "pod", *pod)
 	var podLogger logr.Logger
-	podLogger = logger.V(1).WithValues(
-		"namespace", pod.ObjectMeta.Namespace,
-		"generatedName", pod.ObjectMeta.GenerateName)
+	if pod.ObjectMeta.Name == "" {
+		// PODs in deployments don't have names, but they have a
+		// GenerateName
+		podLogger = logger.V(1).WithValues(
+			"namespace", pod.ObjectMeta.Namespace,
+			"generatedName", pod.ObjectMeta.GenerateName)
+	} else {
+		podLogger = logger.V(1).WithValues(
+			"namespace", pod.ObjectMeta.Namespace,
+			"name", pod.ObjectMeta.Name)
+	}
 
 	resp := admission.AdmissionResponse{
 		Allowed: true,
