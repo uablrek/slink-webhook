@@ -20,8 +20,8 @@ kubectl create -f https://raw.githubusercontent.com/uablrek/slink-webhook/main/d
 ```
 
 This will install the webhook in the `slink-webhook` namespace and
-configure it. All created or updated PODs will now get
-`enableServiceLinks: false` unconditionally.
+configure it. All created PODs will now get `enableServiceLinks:
+false` unconditionally.
 
 ```
 kubectl create -f - <<EOF
