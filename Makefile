@@ -8,6 +8,10 @@ binary: _output/slink-webhook
 _output/slink-webhook: cmd/slink-webhook/main.go
 	./build.sh binary
 
+.PHONY: cert
+cert:
+	./build.sh cert
+
 .PHONY: deploy
 deploy:
 	./build.sh deploy

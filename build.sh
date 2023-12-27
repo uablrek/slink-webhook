@@ -123,8 +123,10 @@ cmd_manifests() {
 	cat $dir/deployment/slink-webhook-template.yaml | envsubst \
 		> $dir/deployment/slink-webhook.yaml
 	export __namespace
-	test -n "$__cabundle" || \
+	if test -z "$__cabundle"; then
+		test -r cert/slink-webhook.crt || die "Can't generate caBundle"
 		__cabundle=$(cat cert/slink-webhook.crt | base64 | tr -d '\n')
+	fi
 	export __cabundle
 	cat $dir/deployment/slink-webhook-conf-template.yaml | envsubst \
 		> $dir/deployment/slink-webhook-conf.yaml

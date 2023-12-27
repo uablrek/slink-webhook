@@ -1,0 +1,37 @@
+#! /bin/sh
+##
+## namespace=default prefix=test-service selector="app: alpine-env" \
+## createsvcs <number>
+##
+##   Create a number of Kubernetes services for test.
+##
+
+if test -z "$1"; then
+	grep '^##' $0 | cut -c3-
+	exit 0
+fi
+
+test -n "$namespace" || namespace=default
+test -n "$prefix" || prefix=test-service
+test -n "$selector" || selector="app: alpine-env"
+
+# createsvc <name> <selector>
+createsvc() {
+	kubectl create -n $namespace -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: $1
+spec:
+  selector:
+    $2
+  ports:
+  - port: 7005
+EOF
+}
+
+cnt=$1
+while test $cnt -gt 0; do
+	createsvc $(printf "$prefix-%04d" $cnt) "$selector"
+	cnt=$((cnt - 1))
+done
