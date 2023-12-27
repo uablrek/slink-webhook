@@ -10,9 +10,9 @@ environment.
 
 ## Quick install in a test cluster
 
-**NOTE:** Don't use this in a production cluster, where you should have
-more control and security. Build your own image, and use your own key
-and certificate.
+**NOTE:** Don't use this in a production cluster where you should have
+more control and security. In production, build your own image, and
+use your own key and certificate.
 
 In a test cluster, e.g. [KinD](https://kind.sigs.k8s.io/):
 ```
@@ -64,7 +64,7 @@ make deploy
 ```
 
 The `cert/` directory is included in the image. If you prefer to mount
-vulumes, or sectrets, for the cert and/or key, just make sure the
+volumes, or sectrets, for the cert and/or key, just make sure the
 `cert/` is empty, or just contain the certificate, when building the image.
 
 If `cert/slink-webhook.crt` doesn't exist you must provide a
@@ -72,15 +72,15 @@ If `cert/slink-webhook.crt` doesn't exist you must provide a
 for instance needed if you use a certificate signed by a CA.
 
 ```
-__cabundle=$(cat ca.crt | base64 | tr -d '\n')
+export __cabundle=$(cat ca.crt | base64 | tr -d '\n')
 ./build.sh manifests
 ```
 
 #### Make vs build.sh
 
 Make uses dependencies to speed up the build process. When you
-don't use them, but instead write scripts in `make`, it's more
-maintainable to use a script. But many users expects to type "make",
+don't use dependencies, but instead write scripts in `make`, it's more
+maintainable to use a shell script. But many users expects to type "make",
 so I made a compromise where `build.sh` is called from a thin
 Makefile. Invoke `build.sh` without parametes for a help printout.
 
